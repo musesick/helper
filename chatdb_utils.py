@@ -36,18 +36,27 @@ def create_connection():
         raise Exception("Failed to create a database connection.")
     return conn
 
-def create_table(conn):
+def insert_chat_channel(conn, channel):
     try:
-        sql = ''' CREATE TABLE IF NOT EXISTS chat_history (
-                                          id integer PRIMARY KEY,
-                                          timestamp text NOT NULL,
-                                          sender text NOT NULL,
-                                          message text NOT NULL,
-                                          vector text NOT NULL
-                                      ); '''
-        conn.execute(sql)
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM chat_channels WHERE id = ?", (channel.id,))
+        rows = cur.fetchall()
+        if len(rows) == 0:
+            cur.execute("INSERT INTO chat_channels(id, channel_name) VALUES(?, ?)", (channel.id, channel.name,))
+            conn.commit()
     except Error as e:
         print(e)
+
+
+def insert_user_if_not_exists(conn, user):
+    discord_id, discord_name = user
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM user_info WHERE discord_id = ?", (discord_id,))
+    rows = cur.fetchall()
+    if len(rows) == 0:
+        cur.execute("INSERT INTO user_info(discord_id, discord_name) VALUES(?, ?)", user)
+        conn.commit()
+
 
 def compute_vector(message):
     return ','.join(str(x) for x in lazy_loader.model.encode([message], show_progress_bar=False)[0])
@@ -63,30 +72,17 @@ def cosine_similarity(a, b):
     return np.dot(a, b) / (norm(a) * norm(b))
 
 def insert_chat(conn, chat):
-    _, _, message = chat
+    timestamp, sender, channel, message = chat
     if not message.startswith("@"):
         # preprocess the message
         message = preprocess_message(message)
         vector = compute_vector(message)
-        sql = ''' INSERT INTO chat_history(timestamp, sender, message, vector)
-                  VALUES(?,?,?,?) '''
+        sql = ''' INSERT INTO chat_history(timestamp, sender, channel, message, vector)
+                  VALUES(?,?,?,?,?) '''
         cur = conn.cursor()
-        cur.execute(sql, chat[:2] + (message, vector,))
+        cur.execute(sql, chat[:2] + (channel, message, vector,))
         conn.commit()
         return cur.lastrowid
-
-def get_last_n_chats(conn, n):
-    cur = conn.cursor()
-    # SQL command to select the last N rows
-    sql = f'''SELECT * FROM (
-                SELECT * FROM chat_history ORDER BY id DESC LIMIT {n}
-            ) sub
-            ORDER BY id ASC'''
-    # execute the SQL command
-    cur.execute(sql)
-    # fetch all rows of result
-    rows = cur.fetchall()
-    return rows
 
 def update_vectors_in_database(conn):
     cur = conn.cursor()
