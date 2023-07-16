@@ -89,12 +89,26 @@ def update_vectors_in_database(conn):
     # Select all rows in the database
     cur.execute("SELECT * FROM chat_history")
     rows = cur.fetchall()
-
     # For each row, update the vector
     for row in rows:
         new_vector = compute_vector(row[3])  # Assuming the message is in the fourth column
         cur.execute("UPDATE chat_history SET vector = ? WHERE id = ?", (new_vector, row[0]))
-
     # Commit the changes
     conn.commit()
 
+def retrieve_user_chat_history(conn, discord_name, channel_name):
+    """
+    Retrieve the chat history of a specific user from the database.
+
+    Args:
+        conn (sqlite3.Connection): SQLite connection object.
+        discord_name (str): The discord name of the user.
+        channel_name (str): The name of the discord channel.
+
+    Returns:
+        list: List of strings, each string represents a chat message of the user.
+    """
+    cur = conn.cursor()
+    cur.execute("SELECT message FROM chat_history WHERE sender = ? AND channel = ?", (discord_name, channel_name))
+    rows = cur.fetchall()
+    return [row[0] for row in rows]

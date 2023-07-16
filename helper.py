@@ -1,10 +1,13 @@
+import random
+import os
 import discord
 from discord.ext import commands
 import chatdb_utils
 import chatdb_tables
+import bot_utils
 from chatdb_utils import create_connection
 from datetime import datetime
-from bot_utils import compile_recent_chats  # import this function from bot_utils.py
+from bot_commands import setup_commands
 
 intents = discord.Intents.all()
 intents.members = True
@@ -36,13 +39,24 @@ class MyClient(commands.Bot):  # Changed from discord.Client to commands.Bot
         # don't respond to ourselves
         if message.author == self.user:
             return
-        await self.process_commands(message)  # This line is needed to process commands
+
+        # process commands and return if the message starts with the command prefix
+        if message.content.startswith('!'):
+            await self.process_commands(message)
+            return
+
+        # If the message author is "Zos", send a special response
+        if message.author.name.lower() == "zos":
+            random_name = get_random_line_from_file("BotData/names.txt")
+            await message.channel.send(f"ok, {random_name}")
+
         # Ensure Message was sent by a bot buddy
         if isinstance(message.channel, discord.TextChannel):
             for role in message.author.roles:
                 if role.name == "Bot Buddy":
                     await self.handle_bot_buddy_message(message)
                     break
+
         # If the message is a DM, treat the author as a Bot Buddy
         elif isinstance(message.channel, discord.DMChannel):
             await self.handle_bot_buddy_message(message)
@@ -67,23 +81,11 @@ def get_discord_token():
     with open('BotData/discord_token.txt', 'r') as file:
         return file.read().strip()
 
+def get_random_line_from_file(file_name):
+    """Return a random line from a file."""
+    with open(file_name, 'r') as f:
+        lines = f.readlines()
+    return random.choice(lines).strip()  # Removes newline characters from the chosen line
+
 client = MyClient(command_prefix='!', intents=intents)  # Added a command prefix "!"
-
-@client.command()
-async def summarize(ctx, n: int):  # This decorator creates a new command named "summarize"
-    """
-    This command summarizes the last n messages from the channel it was called from.
-    """
-    channel_name = str(ctx.channel)
-    summary = compile_recent_chats(client.conn, channel_name, n)
-
-    # If the summary is longer than 2000 characters, Discord won't let us send it in a single message
-    if len(summary) > 2000:
-        # If it's too long, we can split it up and send it in chunks
-        for i in range(0, len(summary), 2000):
-            await ctx.send(summary[i:i+2000])
-    else:
-        # If it's short enough, we can just send it all at once
-        await ctx.send(summary)
-
 client.run(get_discord_token())

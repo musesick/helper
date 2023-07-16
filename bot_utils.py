@@ -5,7 +5,6 @@ from datetime import datetime
 
 logging.basicConfig(filename='BotData/openai_log.txt', level=logging.INFO, format='%(asctime)s:%(message)s')
 
-
 def get_api_key():
     with open('BotData/api_key.txt', 'r') as file:
         api_key = file.read().replace('\n', '')
@@ -32,12 +31,12 @@ def compile_recent_chats(conn, channel_name, n):
 def generate_summary(text):
     openai.api_key = get_api_key()
     # Include a prompt to summarize the text
-    prompt = f"I have the following text from a conversation, and I need a short summary:\n\n{text}\n\nSummary:"
+    prompt = f"I have the following text from a conversation, and I need a summary. \n\n{text}\n\nSummary:"
     response = openai.Completion.create(
         engine="text-davinci-002",
         prompt=prompt,
         temperature=0.3,
-        max_tokens=300
+        max_tokens=1500
     )
     # Log the interaction with OpenAI
     timestamp = get_timestamp()
