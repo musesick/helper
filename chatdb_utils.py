@@ -96,19 +96,15 @@ def update_vectors_in_database(conn):
     # Commit the changes
     conn.commit()
 
-def retrieve_user_chat_history(conn, discord_name, channel_name):
+def retrieve_user_chat_history(conn, discord_name, channel_name=None):
     """
     Retrieve the chat history of a specific user from the database.
-
-    Args:
-        conn (sqlite3.Connection): SQLite connection object.
-        discord_name (str): The discord name of the user.
-        channel_name (str): The name of the discord channel.
-
-    Returns:
-        list: List of strings, each string represents a chat message of the user.
     """
     cur = conn.cursor()
-    cur.execute("SELECT message FROM chat_history WHERE sender = ? AND channel = ?", (discord_name, channel_name))
+    if channel_name:
+        cur.execute("SELECT id, timestamp, sender, channel, message FROM chat_history WHERE sender = ? AND channel = ?", (discord_name, channel_name))
+    else:
+        cur.execute("SELECT id, timestamp, sender, channel, message FROM chat_history WHERE sender = ?", (discord_name,))
     rows = cur.fetchall()
-    return [row[0] for row in rows]
+    return rows
+

@@ -1,10 +1,8 @@
 import random
-import os
 import discord
 from discord.ext import commands
 import chatdb_utils
 import chatdb_tables
-import bot_utils
 from chatdb_utils import create_connection
 from datetime import datetime
 from bot_commands import setup_commands
@@ -46,12 +44,12 @@ class MyClient(commands.Bot):  # Changed from discord.Client to commands.Bot
             return
 
         # If the message author is "Zos", send a special response
-        if message.author.name.lower() == "zos":
+        elif message.author.name.lower() == "zos":
             random_name = get_random_line_from_file("BotData/names.txt")
             await message.channel.send(f"ok, {random_name}")
 
         # Ensure Message was sent by a bot buddy
-        if isinstance(message.channel, discord.TextChannel):
+        elif isinstance(message.channel, discord.TextChannel):
             for role in message.author.roles:
                 if role.name == "Bot Buddy":
                     await self.handle_bot_buddy_message(message)
@@ -65,6 +63,7 @@ class MyClient(commands.Bot):  # Changed from discord.Client to commands.Bot
         try:
             # log all messages from authors with the "Bot Buddy" role
             timestamp = datetime.now().isoformat()
+            # checks to see if the message is from a user we've never interacted with
             chatdb_utils.insert_user_if_not_exists(self.conn, (str(message.author.id), message.author.name))
             channel = str(message.channel) if not isinstance(message.channel, discord.DMChannel) else 'DM'
             clean_message = message.clean_content  # replaces discord ID mentions with user names
@@ -72,7 +71,7 @@ class MyClient(commands.Bot):  # Changed from discord.Client to commands.Bot
             print(f"Logged a message: {clean_message} from {message.author.name} in {channel}")
             # respond only when the bot is mentioned
             if self.user in message.mentions:
-                await message.channel.send('Received')
+                await message.channel.send('Beep beep beep beep. Beep beep.')
                 print(f"Responded to a mention in a message: {clean_message} from {message.author.name}")
         except Exception as e:
             print(f"Error occurred: {e}")
@@ -88,4 +87,6 @@ def get_random_line_from_file(file_name):
     return random.choice(lines).strip()  # Removes newline characters from the chosen line
 
 client = MyClient(command_prefix='!', intents=intents)  # Added a command prefix "!"
+# Add your bot commands
+setup_commands(client)
 client.run(get_discord_token())
