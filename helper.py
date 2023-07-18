@@ -18,7 +18,7 @@ conn = chatdb_utils.create_connection()
 chatdb_tables.create_user_table(conn)  # Creating user table on bot start
 chatdb_tables.create_chat_channels_table(conn)  # Creating chat_channels table on bot start
 
-class MyClient(commands.Bot):  # Changed from discord.Client to commands.Bot
+class MyClient(commands.Bot):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

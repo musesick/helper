@@ -83,4 +83,28 @@ def generate_user_summary(text):
         tokens_used = response['usage']['total_tokens']
         log_openai_interaction(timestamp, content_sent, response_text, tokens_used)
         return response_text
+def process_search_results(query, results_text):
+    openai.api_key = get_api_key()
 
+    tokens = count_tokens(results_text)
+    if tokens > 2048:  # Half of the maximum limit
+        middle = len(text) // 2
+        split1 = text[:middle]
+        split2 = text[middle:]
+        return process_search_results(query, split1) + process_search_results(query, split2)
+    else:
+        # Include a prompt to summarize the text
+        prompt = f"We have a query: '{query}'. Here are some related messages from the chat history:\n{results_text}\n\nBased on this information, could you provide a response to the query? Please be specific and use names when possible."
+        response = openai.Completion.create(
+            engine="text-davinci-002",
+            prompt=prompt,
+            temperature=0.6,
+            max_tokens=1500
+        )
+        # Log the interaction with OpenAI
+        timestamp = get_timestamp()
+        content_sent = results_text
+        response_text = response.choices[0].text.strip()
+        tokens_used = response['usage']['total_tokens']
+        log_openai_interaction(timestamp, content_sent, response_text, tokens_used)
+        return response_text

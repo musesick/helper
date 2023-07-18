@@ -1,10 +1,11 @@
 from discord.ext import commands
-from bot_utils import compile_recent_chats, generate_summary, generate_user_summary
+from bot_utils import compile_recent_chats, generate_summary, generate_user_summary, process_search_results
+from chatdb_utils import search_chat_history
 import chatdb_utils
 
 def setup_commands(client: commands.Bot):
     @client.command()
-    async def summarize(ctx, n: int):  # This decorator creates a new command named "summarize"
+    async def summarize(ctx, n: int):
         """
         This command summarizes the last n messages from the channel it was called from.
         """
@@ -21,7 +22,7 @@ def setup_commands(client: commands.Bot):
             await ctx.send(summary)
 
     @client.command()
-    async def usersummary(ctx, discord_name: str):  # This decorator creates a new command named "usersummary"
+    async def usersummary(ctx, discord_name: str):
         """
         This command retrieves and summarizes the chat history of a specific user for the current channel.
         """
@@ -81,3 +82,31 @@ def setup_commands(client: commands.Bot):
         else:
             # If it's short enough, we can just send it all at once
             await ctx.send(summary)
+
+    @client.command()
+    async def historysearch(ctx, *, query: str):
+        """
+        This command searches the chat history for the provided query and returns the top 10 relevant messages.
+        """
+        results = search_chat_history(client.conn, query)
+
+        # Format results for displaying as "user: message"
+        results_text = "\n\n".join([f"{result['role']}: {result['content']}" for result in results])
+
+        if not results_text.strip():
+            await ctx.send("No results found.")
+            return
+
+        # Send the query and results to your new function in bot_utils.py
+        processed_results = process_search_results(query, results_text)
+
+        # If the processed_results is longer than 2000 characters, Discord won't let us send it in a single message
+        if len(processed_results) > 2000:
+            # If it's too long, we can split it up and send it in chunks
+            for i in range(0, len(processed_results), 2000):
+                await ctx.send(processed_results[i:i + 2000])
+        else:
+            # If it's short enough, we can just send it all at once
+            await ctx.send(processed_results)
+
+

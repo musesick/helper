@@ -108,3 +108,25 @@ def retrieve_user_chat_history(conn, discord_name, channel_name=None):
     rows = cur.fetchall()
     return rows
 
+def search_chat_history(conn, query):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM chat_history")
+    rows = cur.fetchall()
+    user_vector = lazy_loader.model.encode([query], show_progress_bar=False)[0]
+    similar_msgs = []
+
+    for i in range(len(rows)):
+        msg_vector = string_to_vector(rows[i][5])  # Adjusted to correct index for 'vector' column
+        similarity = cosine_similarity(user_vector, msg_vector)
+        if similarity > 0.3:
+            role = rows[i][2]  # 'sender' column
+            content = rows[i][4]  # 'message' column
+            similar_msgs.append({'role': role, 'content': content, 'similarity': similarity})
+
+    similar_msgs = sorted(similar_msgs, key=lambda x: x['similarity'], reverse=True)
+
+    # Take only the top 10 messages
+    top_10_msgs = similar_msgs[:10]
+    top_10_msgs_without_similarity = [{k: v for k, v in msg.items() if k != 'similarity'} for msg in top_10_msgs]
+
+    return top_10_msgs_without_similarity
