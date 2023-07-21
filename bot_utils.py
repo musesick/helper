@@ -103,7 +103,7 @@ def process_search_results(query, results_text):
         )
         # Log the interaction with OpenAI
         timestamp = get_timestamp()
-        content_sent = results_text
+        content_sent = prompt
         response_text = response.choices[0].text.strip()
         tokens_used = response['usage']['total_tokens']
         log_openai_interaction(timestamp, content_sent, response_text, tokens_used)
