@@ -1,9 +1,22 @@
 import openai
 import logging
-
+from google.cloud import vision
 from datetime import datetime
 
 logging.basicConfig(filename='BotData/openai_log.txt', level=logging.INFO, format='%(asctime)s:%(message)s')
+
+def analyze_image(image_path):
+    client = vision.ImageAnnotatorClient()
+
+    with open(image_path, 'rb') as image_file:
+        content = image_file.read()
+
+    image = vision.Image(content=content)
+
+    response = client.label_detection(image=image)
+    labels = response.label_annotations
+
+    return ', '.join(label.description for label in labels)
 
 def count_tokens(text):
     return len(text.split())
@@ -85,7 +98,6 @@ def generate_user_summary(text):
         return response_text
 def process_search_results(query, results_text):
     openai.api_key = get_api_key()
-
     tokens = count_tokens(results_text)
     if tokens > 2048:  # Half of the maximum limit
         middle = len(text) // 2

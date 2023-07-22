@@ -57,7 +57,6 @@ def insert_user_if_not_exists(conn, user):
         cur.execute("INSERT INTO user_info(discord_id, discord_name) VALUES(?, ?)", user)
         conn.commit()
 
-
 def compute_vector(message):
     return ','.join(str(x) for x in lazy_loader.model.encode([message], show_progress_bar=False)[0])
 

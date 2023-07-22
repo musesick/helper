@@ -6,10 +6,13 @@ import chatdb_tables
 from chatdb_utils import create_connection
 from datetime import datetime
 from bot_commands import setup_commands
+from bot_utils import analyze_image
+import os
 
 intents = discord.Intents.all()
 intents.members = True
 intents.presences = True
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'BotData/discordbotapi-393503-0947dda1c133.json'
 
 # establish connection
 conn = chatdb_utils.create_connection()
@@ -18,6 +21,7 @@ conn = chatdb_utils.create_connection()
 chatdb_tables.create_user_table(conn)  # Creating user table on bot start
 chatdb_tables.create_chat_channels_table(conn)  # Creating chat_channels table on bot start
 
+
 class MyClient(commands.Bot):
 
     def __init__(self, *args, **kwargs):
@@ -25,6 +29,7 @@ class MyClient(commands.Bot):
         self.conn = None
 
     async def on_ready(self):
+        print(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
         print('Logged on as {0}!'.format(self.user))
         self.conn = create_connection()
         # Call create_chat_channels_table for each guild the bot is in
@@ -34,6 +39,7 @@ class MyClient(commands.Bot):
                     chatdb_utils.insert_chat_channel(self.conn, channel)
 
     async def on_message(self, message):
+
         # don't respond to ourselves
         if message.author == self.user:
             return
@@ -52,12 +58,23 @@ class MyClient(commands.Bot):
         elif isinstance(message.channel, discord.TextChannel):
             for role in message.author.roles:
                 if role.name == "Bot Buddy":
-                    await self.handle_bot_buddy_message(message)
-                    break
+                    if message.attachments:
+                        for attachment in message.attachments:
+                            # Download the attachment
+                            file_path = f'./images/{attachment.filename}'
+                            await attachment.save(file_path)
+                            # Analyze the image
+                            description = analyze_image(file_path)
+                            # Send the description
+                            await message.channel.send(description)
+                    else:
+                        await self.handle_bot_buddy_message(message)
 
         # If the message is a DM, treat the author as a Bot Buddy
         elif isinstance(message.channel, discord.DMChannel):
             await self.handle_bot_buddy_message(message)
+
+
 
     async def handle_bot_buddy_message(self, message):
         try:
