@@ -127,5 +127,18 @@ def search_chat_history(conn, query):
     # Take only the top 10 messages
     top_10_msgs = similar_msgs[:10]
     top_10_msgs_without_similarity = [{k: v for k, v in msg.items() if k != 'similarity'} for msg in top_10_msgs]
-
     return top_10_msgs_without_similarity
+
+def recent_chats(conn, channel_name, n):
+    if not isinstance(channel_name, str):
+        raise ValueError(f"channel_name must be a string, not {type(channel_name)}")
+    if not isinstance(n, int):
+        raise ValueError(f"n must be an integer, not {type(n)}")
+    cur = conn.cursor()
+    cur.execute("SELECT sender, message FROM chat_history WHERE channel = ? ORDER BY id DESC LIMIT ?", (channel_name, n,))
+    rows = cur.fetchall()
+    # rows are returned in the format [(sender, message), ...]
+    # We will compile the chats into a string where each message is in a new line with the format "sender: message"
+    chat_string = "\n".join([f"{row[0]}: {row[1]}" for row in rows])
+    # Write to a text file
+    return chat_string

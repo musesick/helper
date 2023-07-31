@@ -3,10 +3,12 @@ import discord
 from discord.ext import commands
 import chatdb_utils
 import chatdb_tables
-from chatdb_utils import create_connection
+from chatdb_utils import create_connection, recent_chats
 from datetime import datetime
 from bot_commands import setup_commands
 from bot_utils import analyze_image
+from lc_testing import process_chat
+
 import os
 
 intents = discord.Intents.all()
@@ -39,7 +41,6 @@ class MyClient(commands.Bot):
                     chatdb_utils.insert_chat_channel(self.conn, channel)
 
     async def on_message(self, message):
-
         # don't respond to ourselves
         if message.author == self.user:
             return
@@ -66,7 +67,7 @@ class MyClient(commands.Bot):
                             # Analyze the image
                             description = analyze_image(file_path)
                             # Send the description
-                            await message.channel.send(description)
+                            # await message.channel.send(description)
                     else:
                         await self.handle_bot_buddy_message(message)
 
@@ -74,10 +75,8 @@ class MyClient(commands.Bot):
         elif isinstance(message.channel, discord.DMChannel):
             await self.handle_bot_buddy_message(message)
 
-
-
     async def handle_bot_buddy_message(self, message):
-        try:
+        #try:
             # log all messages from authors with the "Bot Buddy" role
             timestamp = datetime.now().isoformat()
             # checks to see if the message is from a user we've never interacted with
@@ -88,11 +87,16 @@ class MyClient(commands.Bot):
             print(f"Logged a message: {clean_message} from {message.author.name} in {channel}")
             # respond only when the bot is mentioned
             if self.user in message.mentions:
-                await message.channel.send('Beep beep beep beep. Beep beep.')
+                channel_name = message.channel.name
+                message_content = message.clean_content
+                chat_history = recent_chats(client.conn, channel_name, 20)
+                response = process_chat(message_content, chat_history)
+                # send the response back to the channel
+                await message.channel.send(response)
                 print(f"Responded to a mention in a message: {clean_message} from {message.author.name}")
-        except Exception as e:
-            print(f"Error occurred: {e}")
 
+        #except Exception as e:
+           #print(f"Error occurred: {e}")
 def get_discord_token():
     with open('BotData/discord_token.txt', 'r') as file:
         return file.read().strip()

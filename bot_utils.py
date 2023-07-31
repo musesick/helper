@@ -7,15 +7,11 @@ logging.basicConfig(filename='BotData/openai_log.txt', level=logging.INFO, forma
 
 def analyze_image(image_path):
     client = vision.ImageAnnotatorClient()
-
     with open(image_path, 'rb') as image_file:
         content = image_file.read()
-
     image = vision.Image(content=content)
-
     response = client.label_detection(image=image)
     labels = response.label_annotations
-
     return ', '.join(label.description for label in labels)
 
 def count_tokens(text):
@@ -44,9 +40,10 @@ def compile_recent_chats(conn, channel_name, n):
     summary = generate_summary(chat_string)
     return summary
 
+
+
 def generate_summary(text):
     openai.api_key = get_api_key()
-
     tokens = count_tokens(text)
     if tokens > 2048:  # Half of the maximum limit
         middle = len(text) // 2
@@ -70,10 +67,8 @@ def generate_summary(text):
         log_openai_interaction(timestamp, content_sent, response_text, tokens_used)
         return response_text
 
-
 def generate_user_summary(text):
     openai.api_key = get_api_key()
-
     tokens = count_tokens(text)
     if tokens > 2048:  # Half of the maximum limit
         middle = len(text) // 2
