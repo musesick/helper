@@ -135,7 +135,7 @@ def recent_chats(conn, channel_name, n):
     if not isinstance(n, int):
         raise ValueError(f"n must be an integer, not {type(n)}")
     cur = conn.cursor()
-    cur.execute("SELECT sender, message FROM chat_history WHERE channel = ? ORDER BY id DESC LIMIT ?", (channel_name, n,))
+    cur.execute("SELECT sender, message FROM chat_history WHERE channel = ? ORDER BY id LIMIT ?", (channel_name, n,))
     rows = cur.fetchall()
     # rows are returned in the format [(sender, message), ...]
     # We will compile the chats into a string where each message is in a new line with the format "sender: message"
