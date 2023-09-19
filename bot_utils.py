@@ -1,7 +1,9 @@
 import openai
 import logging
+import discord
 from google.cloud import vision
 from datetime import datetime
+from chatdb_utils import create_connection
 
 logging.basicConfig(filename='BotData/openai_log.txt', level=logging.INFO, format='%(asctime)s:%(message)s')
 
@@ -115,3 +117,40 @@ def process_search_results(query, results_text):
         tokens_used = response['usage']['total_tokens']
         log_openai_interaction(timestamp, content_sent, response_text, tokens_used)
         return response_text
+
+
+async def fetch_and_log_missed_messages(client):
+    conn = create_connection()
+    # Step 1: Fetch the timestamp of the most recent message
+    cur = conn.cursor()
+    cur.execute("SELECT MAX(timestamp) FROM chat_history")  # Assuming your table's name is chat_history
+    result = cur.fetchone()
+    if result and result[0]:
+        last_timestamp = datetime.fromisoformat(result[0])
+    else:
+        print("No recent timestamp found!")
+        return
+    # Step 2: Use the Discord API to retrieve messages sent after the last timestamp
+    for guild in client.guilds:
+        for channel in guild.channels:
+            if isinstance(channel, discord.TextChannel):  # Ensure it's a text channel
+                try:
+                    # Fetch messages after the given timestamp
+                    after = discord.utils.snowflake_time(discord.utils.time_snowflake(last_timestamp))
+                    messages = []  # Initialize the list
+                    async for message in channel.history(after=after):
+                        messages.append(message)
+                    # Step 3: Process these messages
+                    for message in messages:
+                        is_bot_buddy = False
+                        for role in message.author.roles:
+                            if role.name == "Bot Buddy":
+                                is_bot_buddy = True
+                                break
+                        if is_bot_buddy:
+                            await client.handle_bot_buddy_message(message)
+
+                except discord.Forbidden:
+                    print(f"Permission error in channel: {channel.name}")
+                except discord.HTTPException as e:
+                    print(f"Failed to fetch messages from {channel.name}. Error: {e}")

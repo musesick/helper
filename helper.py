@@ -6,11 +6,12 @@ import chatdb_tables
 from chatdb_utils import create_connection, recent_chats
 from datetime import datetime
 from bot_commands import setup_commands
-from bot_utils import analyze_image
+from bot_utils import analyze_image, fetch_and_log_missed_messages
 from lc_testing import process_chat
 
-import os
 
+import os
+PROCESS_MESSAGES = True
 intents = discord.Intents.all()
 intents.members = True
 intents.presences = True
@@ -39,8 +40,12 @@ class MyClient(commands.Bot):
             for channel in guild.channels:
                 if isinstance(channel, discord.TextChannel):  # Ensure it's a text channel
                     chatdb_utils.insert_chat_channel(self.conn, channel)
+        #check for missed messages
+        await fetch_and_log_missed_messages(self)
 
     async def on_message(self, message):
+        if not PROCESS_MESSAGES:
+            return
         # don't respond to ourselves
         if message.author == self.user:
             return
@@ -90,7 +95,7 @@ class MyClient(commands.Bot):
                 channel_name = message.channel.name
                 message_content = message.clean_content
                 chat_history = recent_chats(client.conn, channel_name, 20)
-                response = process_chat(message_content, chat_history)
+                response = process_chat(chat_history, message_content)
                 # send the response back to the channel
                 await message.channel.send(response)
                 print(f"Responded to a mention in a message: {clean_message} from {message.author.name}")
