@@ -1,4 +1,5 @@
 from discord.ext import commands
+from lc_testing import build_primer
 from bot_utils import compile_recent_chats, generate_summary, generate_user_summary, process_search_results
 from chatdb_utils import search_chat_history
 import chatdb_utils
@@ -97,7 +98,7 @@ def setup_commands(client: commands.Bot):
             await ctx.send("No results found.")
             return
 
-        # Send the query and results to your new function in bot_utils.py
+        # Send the query and results to new function in bot_utils.py
         processed_results = process_search_results(query, results_text)
 
         # If the processed_results is longer than 2000 characters, Discord won't let us send it in a single message
@@ -108,5 +109,79 @@ def setup_commands(client: commands.Bot):
         else:
             # If it's short enough, we can just send it all at once
             await ctx.send(processed_results)
+
+    @client.command()
+    async def buildprimer(ctx, user_name: str, output_file="BotData/user_history.txt"):
+        """
+        This command compiles the chat history of a given user and writes it to a text file.
+        """
+        # Create a connection cursor
+        cur = client.conn.cursor()
+        # Query to fetch all messages by the user
+        cur.execute("SELECT channel, sender, message FROM chat_history WHERE sender = ?", (user_name,))
+        rows = cur.fetchall()
+        # Group by channel
+        channel_data = {}
+        for row in rows:
+            channel, sender, message = row
+            if channel not in channel_data:
+                channel_data[channel] = []
+            channel_data[channel].append(message)  # Only appending the message, not the sender's name
+
+        # Compile messages
+        messages = []
+        for channel, msgs in channel_data.items():
+            messages.append(f"=== {channel} ===")
+            messages.extend(msgs)
+
+        chat_string = '\n'.join(messages)
+        # Write to file
+        with open(output_file, 'w', encoding='utf-8') as file:
+            for channel, messages in channel_data.items():
+                file.write(f"--- {channel} ---\n")
+                file.write('\n'.join(messages))
+                file.write("\n\n")  # Separate channels with two newline characters
+
+        # Generate the primer
+        primer = build_primer(chat_string, " ")
+
+        # Write the primer to a new file
+        with open("BotData/user_primer.txt", 'w', encoding='utf-8') as primer_file:
+            primer_file.write(primer)
+
+        # Update the database
+        cur.execute("UPDATE user_info SET primer = ? WHERE discord_name = ?", (primer, user_name))
+        client.conn.commit()
+
+        await ctx.send(f"User history for {user_name} has been written to {output_file} and primer saved.")
+
+    @client.command()
+    async def spillthetea(ctx, discord_name: str):
+        """
+        This command fetches the primer for a given user from the user_info table.
+        """
+        # Ensure that the discord_name is a string
+        if not isinstance(discord_name, str):
+            await ctx.send("Invalid username provided.")
+            return
+
+        # Create a connection cursor
+        cur = client.conn.cursor()
+
+        # Query the database for the primer associated with the provided discord_name
+        cur.execute("SELECT primer FROM user_info WHERE discord_name = ?", (discord_name,))
+        result = cur.fetchone()
+
+        # If an entry is found, send the primer to the chat
+        if result:
+            await ctx.send(f"Primer for {discord_name}: {result[0]}")
+        else:
+            await ctx.send(f"No primer found for {discord_name}.")
+
+
+
+
+
+
 
 

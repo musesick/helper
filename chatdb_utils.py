@@ -115,7 +115,7 @@ def search_chat_history(conn, query):
     similar_msgs = []
 
     for i in range(len(rows)):
-        msg_vector = string_to_vector(rows[i][5])  # Adjusted to correct index for 'vector' column
+        msg_vector = string_to_vector(rows[i][5])
         similarity = cosine_similarity(user_vector, msg_vector)
         if similarity > 0.3:
             role = rows[i][2]  # 'sender' column
@@ -125,7 +125,7 @@ def search_chat_history(conn, query):
     similar_msgs = sorted(similar_msgs, key=lambda x: x['similarity'], reverse=True)
 
     # Take only the top 10 messages
-    top_10_msgs = similar_msgs[:10]
+    top_10_msgs = similar_msgs[:20]
     top_10_msgs_without_similarity = [{k: v for k, v in msg.items() if k != 'similarity'} for msg in top_10_msgs]
     return top_10_msgs_without_similarity
 
@@ -135,10 +135,52 @@ def recent_chats(conn, channel_name, n):
     if not isinstance(n, int):
         raise ValueError(f"n must be an integer, not {type(n)}")
     cur = conn.cursor()
-    cur.execute("SELECT sender, message FROM chat_history WHERE channel = ? ORDER BY id LIMIT ?", (channel_name, n,))
+    cur.execute("SELECT sender, message FROM chat_history WHERE channel = ? ORDER BY id DESC LIMIT ?",
+                (channel_name, n,))
     rows = cur.fetchall()
-    # rows are returned in the format [(sender, message), ...]
-    # We will compile the chats into a string where each message is in a new line with the format "sender: message"
+    # Reverse the rows list
+    rows = rows[::-1]
     chat_string = "\n".join([f"{row[0]}: {row[1]}" for row in rows])
     # Write to a text file
     return chat_string
+
+
+def compile_user_history(conn, user_name, output_file="user_history.txt"):
+    """
+    Compile a complete chat history for a single user, grouped by channel.
+
+    Args:
+    - conn (sqlite3.Connection): SQLite connection object.
+    - user_name (str): The name of the user.
+    - output_file (str): Path to the output text file.
+
+    Returns:
+    None. Outputs the results to a text file.
+    """
+
+    # Create a cursor object
+    cur = conn.cursor()
+
+    # Query to fetch all messages by the user
+    cur.execute("SELECT channel, sender, message FROM chat_history WHERE sender = ?", (user_name,))
+    rows = cur.fetchall()
+
+    # Group by channel
+    channel_data = {}
+    for row in rows:
+        channel, sender, message = row
+        if channel not in channel_data:
+            channel_data[channel] = []
+        channel_data[channel].append(f"{sender}: {message}")
+
+    # Write to file
+    with open(output_file, 'w') as file:
+        for channel, messages in channel_data.items():
+            file.write(f"--- {channel} ---\n")
+            file.write('\n'.join(messages))
+            file.write("\n\n")  # Separate channels with two newline characters
+
+    print(f"User history for {user_name} has been written to {output_file}")
+
+# Test the function (assuming you've got an active SQLite connection called `conn` and the user's name is "John")
+# compile_user_history(conn, "John")
