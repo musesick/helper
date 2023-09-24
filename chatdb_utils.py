@@ -144,27 +144,12 @@ def recent_chats(conn, channel_name, n):
     # Write to a text file
     return chat_string
 
-
 def compile_user_history(conn, user_name, output_file="user_history.txt"):
-    """
-    Compile a complete chat history for a single user, grouped by channel.
-
-    Args:
-    - conn (sqlite3.Connection): SQLite connection object.
-    - user_name (str): The name of the user.
-    - output_file (str): Path to the output text file.
-
-    Returns:
-    None. Outputs the results to a text file.
-    """
-
     # Create a cursor object
     cur = conn.cursor()
-
     # Query to fetch all messages by the user
     cur.execute("SELECT channel, sender, message FROM chat_history WHERE sender = ?", (user_name,))
     rows = cur.fetchall()
-
     # Group by channel
     channel_data = {}
     for row in rows:
@@ -172,15 +157,10 @@ def compile_user_history(conn, user_name, output_file="user_history.txt"):
         if channel not in channel_data:
             channel_data[channel] = []
         channel_data[channel].append(f"{sender}: {message}")
-
     # Write to file
     with open(output_file, 'w') as file:
         for channel, messages in channel_data.items():
             file.write(f"--- {channel} ---\n")
             file.write('\n'.join(messages))
             file.write("\n\n")  # Separate channels with two newline characters
-
     print(f"User history for {user_name} has been written to {output_file}")
-
-# Test the function (assuming you've got an active SQLite connection called `conn` and the user's name is "John")
-# compile_user_history(conn, "John")

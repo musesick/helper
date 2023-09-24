@@ -111,7 +111,7 @@ def setup_commands(client: commands.Bot):
             await ctx.send(processed_results)
 
     @client.command()
-    async def buildprimer(ctx, user_name: str, output_file="BotData/user_history.txt"):
+    async def buildprimerX(ctx, user_name: str, output_file="BotData/user_history.txt"):
         """
         This command compiles the chat history of a given user and writes it to a text file.
         """

@@ -47,8 +47,8 @@ class MyClient(commands.Bot):
         if not PROCESS_MESSAGES:
             return
         # don't respond to ourselves
-        #if message.author == self.user:
-        #    return
+        if message.author == self.user:
+            return
 
         # process commands and return if the message starts with the command prefix
         if message.content.startswith('!'):

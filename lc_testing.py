@@ -37,7 +37,7 @@ def build_primer(chat_history, chat_entry):
     (Start Chat History)
     {chat_history}
     (End Chat History)
-    Human: {human_input} Please review the data and build a "primer" for the user. We are looking for facts, likes, dislikes, political leanings, and personality traits. Important details should be retained, but small details are not as relevant. You should not return a list of facts but more a paragraph or two about the person and what they have talked about.
+    Human: {human_input} 
     """
 
     prompt = PromptTemplate(input_variables=["chat_history", "human_input"], template=template)
@@ -48,9 +48,10 @@ def build_primer(chat_history, chat_entry):
     # Process each chunk and combine the responses
     combined_response = ""
     for chunk in chat_chunks:
+        memory.clear()
         memory.chat_memory.add_user_message(chunk)
         llm_chain = LLMChain(llm=ChatOpenAI(openai_api_key=openai_api_key, temperature=0.3, model="gpt-3.5-turbo-16k"), prompt=prompt, memory=memory, verbose=True)
-        response = llm_chain.predict(human_input=chat_entry)
+        response = llm_chain.predict(human_input="Please review the data and build a primer for the user. We are looking for facts, likes, dislikes, political leanings, and personality traits. Important details should be retained, but small details are not as relevant. You should not return a list of facts but more a paragraph or two about the person and what they have talked about.")
         combined_response += response + "\n"
 
     return combined_response.strip()
