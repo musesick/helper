@@ -3,7 +3,6 @@ import logging
 import discord
 from google.cloud import vision
 from datetime import datetime
-from chatdb_utils import create_connection
 
 logging.basicConfig(filename='BotData/openai_log.txt', level=logging.INFO, format='%(asctime)s:%(message)s')
 
@@ -21,6 +20,11 @@ def count_tokens(text):
 
 def get_api_key():
     with open('BotData/api_key.txt', 'r') as file:
+        api_key = file.read().replace('\n', '')
+    return api_key
+
+def get_serpapi_key():
+    with open('BotData/serpapi_key.txt', 'r') as file:
         api_key = file.read().replace('\n', '')
     return api_key
 

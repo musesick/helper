@@ -1,4 +1,5 @@
 import sqlite3
+from bot_utils import process_search_results
 from sqlite3 import Error
 from numpy.linalg import norm
 import numpy as np
@@ -164,3 +165,29 @@ def compile_user_history(conn, user_name, output_file="user_history.txt"):
             file.write('\n'.join(messages))
             file.write("\n\n")  # Separate channels with two newline characters
     print(f"User history for {user_name} has been written to {output_file}")
+    return
+
+async def vectorhistorysearch(ctx, query: str):
+    """
+    This command searches the chat history for the provided query and returns the top 10 relevant messages.
+    """
+    results = search_chat_history(conn, query)
+
+    # Format results for displaying as "user: message"
+    results_text = "\n\n".join([f"{result['role']}: {result['content']}" for result in results])
+
+    if not results_text.strip():
+        await ctx.send("No results found.")
+        return
+
+    # Send the query and results to new function in bot_utils.py
+    processed_results = process_search_results(query, results_text)
+
+    # If the processed_results is longer than 2000 characters, Discord won't let us send it in a single message
+    if len(processed_results) > 2000:
+        # If it's too long, we can split it up and send it in chunks
+        for i in range(0, len(processed_results), 2000):
+            await ctx.send(processed_results[i:i + 2000])
+    else:
+        # If it's short enough, we can just send it all at once
+        await ctx.send(processed_results)
