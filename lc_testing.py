@@ -1,4 +1,5 @@
 from bot_utils import get_serpapi_key
+from typing import Any
 from chatdb_utils import vectorhistorysearch
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -7,6 +8,7 @@ from langchain_experimental.sql import SQLDatabaseChain
 from langchain.agents import initialize_agent, AgentType, Tool
 from langchain.chat_models import ChatOpenAI
 from langchain.utilities import SerpAPIWrapper, SQLDatabase
+from pydantic import BaseModel, Field
 from langchain.agents import AgentExecutor
 from langchain.prompts import MessagesPlaceholder
 
@@ -18,11 +20,15 @@ def get_api_key():
 def vector_search_tool(conn, query):
     return vectorhistorysearch(conn, query)
 
-def new_process_chat(conn,chat_history, query, channel):
+def new_process_chat(dbconn,chat_history, userquery, channel):
+    class vector_input(BaseModel):
+        conn: Any = Field(description="Connection object")
+        query: str = Field(description="Query string")
+
     openai_api_key = get_api_key()
     serpapi_api_key = get_serpapi_key()
     # Define the prompt template
-    template = """You are playing the role of H.E.L.P.eR. (a.k.a Helper or @H.E.L.P.eR.). Helper is an AI assistant. You will be provided chat conversation between users in the following format: "user" : "message" and will be expected to give a respond as if part of the ongoing chat. Do not begin your answer with a greeting or introduction, such as "Hey there" or "Hello (user)". Keep up the illusion you have been a part of the conversation the whole time. Please use any of the provided information in your response if relevant. If you do not know the answer to a question, you truthfully say you do not know. If you are not being asked a question, respond as best you can in the given context. Do not impart your ownaopinion such as "that's a great idea" or "x is an intresting topic". Do not close with phrases like “good luck” or “enjoy” as this converstaion is ongoing.     
+    template = """You are playing the role of H.E.L.P.eR. (a.k.a Helper or @H.E.L.P.eR.). Helper is an AI assistant. You will be provided chat conversation between users in the following format: "user" : "message" and will be expected to give a respond as if part of the ongoing chat. Do not begin your answer with a greeting or introduction, such as "Hey there" or "Hello (user)". Keep up the illusion you have been a part of the conversation the whole time. Please use any of the provided information in your response if relevant. If you do not know the answer to a question, you truthfully say you do not know. If you are not being asked a question, respond as best you can in the given context. Do not impart your ownaopinion such as "that's a great idea" or "x is an intresting topic". Do not close with phrases like “good luck” or “enjoy” as this converstaion is ongoing. You will also have access to a databse containing message logs and user infomation     
         (Start Chat History)
         {chat_history}
         (End Chat History)
@@ -41,13 +47,15 @@ def new_process_chat(conn,chat_history, query, channel):
         Tool(
             name="db_search",
             func=db_chain.run,
-            description=f"useful for when you need to answer questions about chat participants. Input should be in the form of a question containing full context. take into account the channel the query was sent from, in this case: {channel}. do not use this for searching for the text of user messages. do use it for meta information searches, like 'how many messages has Don sent in the games channel"
+            description=f"useful for searching the chat database. Input should be in the form of a question containing full context. take into account the channel the query was sent from, in this case: {channel}. do not use this for searching for the content of user messages. do use it for meta information, like 'how many messages has Don sent in the games channel"
         ),
         Tool(
             name="vector_search",
             func=vector_search_tool,
             description=f"useful when you need to search the chat message history.",
             return_direct=True,
+            args_schema=vector_input
+
         )
     ]
     # Create the prompt and memory
@@ -57,7 +65,7 @@ def new_process_chat(conn,chat_history, query, channel):
     print(memory.buffer)
     # Create the LLMChain
     agent_executor = initialize_agent(tools, llm, agent=AgentType.OPENAI_FUNCTIONS, prompt=prompt, memory=memory, verbose=True)
-    response = agent_executor.run(query)
+    response = agent_executor.run(userquery)
     return response
 
 def build_primer(chat_history, chat_entry):
