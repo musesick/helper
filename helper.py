@@ -41,13 +41,21 @@ class MyClient(commands.Bot):
                 if isinstance(channel, discord.TextChannel):  # Ensure it's a text channel
                     chatdb_utils.insert_chat_channel(self.conn, channel)
         #check for missed messages
-        #await fetch_and_log_missed_messages(self)
+        conn = create_connection()
+        await fetch_and_log_missed_messages(self,conn)
 
     async def on_message(self, message):
         if not PROCESS_MESSAGES:
             return
         # don't respond to ourselves
         if message.author == self.user:
+            timestamp = datetime.now().isoformat()
+            # checks to see if the message is from a user we've never interacted with
+            chatdb_utils.insert_user_if_not_exists(self.conn, (str(message.author.id), message.author.name))
+            channel = str(message.channel) if not isinstance(message.channel, discord.DMChannel) else 'DM'
+            clean_message = message.clean_content  # replaces discord ID mentions with user names
+            chatdb_utils.insert_chat(self.conn, (timestamp, message.author.name, channel, clean_message))
+            print(f"Logged a message: {clean_message} from {message.author.name} in {channel}")
             return
 
         # process commands and return if the message starts with the command prefix

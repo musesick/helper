@@ -73,16 +73,16 @@ def cosine_similarity(a, b):
 
 def insert_chat(conn, chat):
     timestamp, sender, channel, message = chat
-    if not message.startswith("@"):
+    #if not message.startswith("@"):
         # preprocess the message
-        message = preprocess_message(message)
-        vector = compute_vector(message)
-        sql = ''' INSERT INTO chat_history(timestamp, sender, channel, message, vector)
+    message = preprocess_message(message)
+    vector = compute_vector(message)
+    sql = ''' INSERT INTO chat_history(timestamp, sender, channel, message, vector)
                   VALUES(?,?,?,?,?) '''
-        cur = conn.cursor()
-        cur.execute(sql, chat[:2] + (channel, message, vector,))
-        conn.commit()
-        return cur.lastrowid
+    cur = conn.cursor()
+    cur.execute(sql, chat[:2] + (channel, message, vector,))
+    conn.commit()
+    return cur.lastrowid
 
 def update_vectors_in_database(conn):
     cur = conn.cursor()
@@ -167,17 +167,17 @@ def compile_user_history(conn, user_name, output_file="user_history.txt"):
     print(f"User history for {user_name} has been written to {output_file}")
     return
 
-async def vectorhistorysearch(ctx, query: str):
+def vectorhistorysearch(ctx, query: str):
     """
     This command searches the chat history for the provided query and returns the top 10 relevant messages.
     """
-    results = search_chat_history(conn, query)
+    results = search_chat_history(ctx, query)
 
     # Format results for displaying as "user: message"
     results_text = "\n\n".join([f"{result['role']}: {result['content']}" for result in results])
 
     if not results_text.strip():
-        await ctx.send("No results found.")
+        ctx.send("No results found.")
         return
 
     # Send the query and results to new function in bot_utils.py
@@ -187,7 +187,7 @@ async def vectorhistorysearch(ctx, query: str):
     if len(processed_results) > 2000:
         # If it's too long, we can split it up and send it in chunks
         for i in range(0, len(processed_results), 2000):
-            await ctx.send(processed_results[i:i + 2000])
+            return (processed_results[i:i + 2000])
     else:
         # If it's short enough, we can just send it all at once
-        await ctx.send(processed_results)
+        return (processed_results)

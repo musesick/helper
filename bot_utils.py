@@ -4,6 +4,7 @@ import discord
 from google.cloud import vision
 from datetime import datetime
 
+
 logging.basicConfig(filename='BotData/openai_log.txt', level=logging.INFO, format='%(asctime)s:%(message)s')
 
 def analyze_image(image_path):
@@ -123,8 +124,7 @@ def process_search_results(query, results_text):
         return response_text
 
 
-async def fetch_and_log_missed_messages(client):
-    conn = create_connection()
+async def fetch_and_log_missed_messages(client,conn):
     # Step 1: Fetch the timestamp of the most recent message
     cur = conn.cursor()
     cur.execute("SELECT MAX(timestamp) FROM chat_history")  # Assuming your table's name is chat_history
