@@ -108,6 +108,8 @@ def retrieve_user_chat_history(conn, discord_name, channel_name=None):
     rows = cur.fetchall()
     return rows
 
+from datetime import datetime
+
 def search_chat_history(conn, query):
     cur = conn.cursor()
     cur.execute("SELECT * FROM chat_history")
@@ -118,17 +120,57 @@ def search_chat_history(conn, query):
     for i in range(len(rows)):
         msg_vector = string_to_vector(rows[i][5])
         similarity = cosine_similarity(user_vector, msg_vector)
-        if similarity > 0.3:
-            role = rows[i][2]  # 'sender' column
-            content = rows[i][4]  # 'message' column
-            similar_msgs.append({'role': role, 'content': content, 'similarity': similarity})
+        timestamp_str = rows[i][1]  # 'timestamp' column as a string
+        sender = rows[i][2]  # 'sender' column
+        message = rows[i][4]  # 'message' column
+        channel = rows[i][3]  # 'channel' column
+        # Exclude messages from the specified channel
+        if sender != "H.E.L.P.eR." and similarity > 0.3 and "@h.e.l.p.er" not in message and channel != "python-enjoyers":
+            # Parse the timestamp string into a datetime object
+            timestamp_datetime = datetime.fromisoformat(timestamp_str)
+            # Convert datetime to a Unix timestamp (integer)
+            timestamp = int(timestamp_datetime.timestamp())
+            similar_msgs.append({'id': rows[i][0], 'role': sender, 'content': message, 'similarity': similarity, 'timestamp': timestamp, 'channel': channel})
 
-    similar_msgs = sorted(similar_msgs, key=lambda x: x['similarity'], reverse=True)
+    similar_msgs = sorted(similar_msgs, key=lambda x: x['similarity'], reverse=True)[:20]
+    print(similar_msgs)
+    # Create conversation bits for the top 20 results
+    top_20_conversations = []
+    for msg in similar_msgs:
+        idx = msg['id']
+        channel = msg['channel']
+        timestamp = msg['timestamp']
+        conversation = []
+        # Re-query the database for messages before and after the result within the same channel
+        target_id = msg['id']
+        cur.execute(
+            "SELECT * FROM chat_history WHERE channel = ? AND id BETWEEN ? AND ? ORDER BY id",
+            (channel, target_id - 2, target_id + 2))
+        context_msgs = cur.fetchall()
 
-    # Take only the top 10 messages
-    top_10_msgs = similar_msgs[:20]
-    top_10_msgs_without_similarity = [{k: v for k, v in msg.items() if k != 'similarity'} for msg in top_10_msgs]
-    return top_10_msgs_without_similarity
+        for context_msg in context_msgs:
+            conversation.append({
+                'id': context_msg[0],
+                'role': context_msg[2],
+                'content': context_msg[4],
+                'timestamp': context_msg[1],
+                'channel': context_msg[3]
+            })
+
+        # Add conversation bits with context to the list
+        top_20_conversations.append(conversation)
+
+    # ...
+
+    # Remove 'similarity' field from each message in each conversation
+    #for conversation in top_20_conversations:
+    #    for msg in conversation:
+    #        del msg['similarity']
+    print(top_20_conversations)
+    return top_20_conversations
+
+
+
 
 def recent_chats(conn, channel_name, n):
     if not isinstance(channel_name, str):
@@ -167,27 +209,23 @@ def compile_user_history(conn, user_name, output_file="user_history.txt"):
     print(f"User history for {user_name} has been written to {output_file}")
     return
 
+
 def vectorhistorysearch(ctx, query: str):
     """
     This command searches the chat history for the provided query and returns the top 10 relevant messages.
     """
     results = search_chat_history(ctx, query)
 
-    # Format results for displaying as "user: message"
-    results_text = "\n\n".join([f"{result['role']}: {result['content']}" for result in results])
-
-    if not results_text.strip():
+    if not results:
         ctx.send("No results found.")
         return
 
-    # Send the query and results to new function in bot_utils.py
-    processed_results = process_search_results(query, results_text)
+    results_text = ""
+    for conversation in results:
+        for result in conversation:
+            results_text += f"{result['role']} ({result['timestamp']}): {result['content']}\n"
+        results_text += "===\n"  # Separate conversation bits with ===
 
-    # If the processed_results is longer than 2000 characters, Discord won't let us send it in a single message
-    if len(processed_results) > 2000:
-        # If it's too long, we can split it up and send it in chunks
-        for i in range(0, len(processed_results), 2000):
-            return (processed_results[i:i + 2000])
-    else:
-        # If it's short enough, we can just send it all at once
-        return (processed_results)
+    return results_text
+
+

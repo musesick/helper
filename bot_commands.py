@@ -1,6 +1,6 @@
 from discord.ext import commands
 from lc_testing import build_primer
-from bot_utils import compile_recent_chats, generate_summary, generate_user_summary, process_search_results
+from bot_utils import compile_recent_chats, generate_summary, generate_user_summary, process_search_results, primer_check
 from chatdb_utils import search_chat_history
 import chatdb_utils
 
@@ -174,10 +174,58 @@ def setup_commands(client: commands.Bot):
 
         # If an entry is found, send the primer to the chat
         if result:
-            await ctx.send(f"Primer for {discord_name}: {result[0]}")
+            primer_text = result[0]
+
+            # Check if primer_text is longer than 2000 characters
+            if len(primer_text) <= 2000:
+                await ctx.send(f"Primer for {discord_name}: {primer_text}")
+            else:
+                # Split the text into chunks of 2000 characters and send them as separate messages
+                chunks = [primer_text[i:i + 2000] for i in range(0, len(primer_text), 2000)]
+                for chunk in chunks:
+                    await ctx.send(chunk)
         else:
             await ctx.send(f"No primer found for {discord_name}.")
 
+    @client.command()
+    async def primercheck(ctx, input_string: str):
+        """
+        This command checks the first word of the input string, looks up the user in the database,
+        and passes the username and the remaining messages to the primer_check function.
+        """
+        # Split the input string into words
+        words = input_string.split()
+
+        # Ensure that at least one word is provided
+        if not words:
+            await ctx.send("No input provided.")
+            return
+
+        # Check if the input string starts with "!" and remove it along with the next word
+        if words[0].startswith("!") and len(words) >= 2:
+            words.pop(0)  # Remove the "!" character
+            words.pop(0)  # Remove the next word
+
+        # Reconstruct the remaining words into a string
+        cleaned_input = ' '.join(words)
+
+        # Extract the first word (presumed to be the username)
+        username = words[0]
+
+        # Check if the user exists in the database
+        cur = client.conn.cursor()
+        cur.execute("SELECT * FROM user_info WHERE discord_name = ?", (username,))
+        result = cur.fetchone()
+        print(f"Primer function for: {words}")
+        if result:
+            # If the user is found, extract the primer text
+            primer_text = result[1]  # Assuming primer text is in the second column (change as needed)
+
+            # Pass both username and primer_text to the primer_check function
+            await primer_check(ctx, username, primer_text)
+
+        else:
+            await ctx.send(f"No user with the username '{username}' found in the database.")
 
 
 

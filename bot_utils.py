@@ -108,7 +108,7 @@ def process_search_results(query, results_text):
         return process_search_results(query, split1) + process_search_results(query, split2)
     else:
         # Include a prompt to summarize the text
-        prompt = f"We have a query: '{query}'. Here are some related messages from the chat history:\n{results_text}\n\nBased on this information, could you provide a response to the query? Please be specific and use names when possible."
+        prompt = f"We have a query: '{query}'. Here are some related messages from the chat history:\n{results_text}\n\nBased on this information, could you provide a response to the query? Please be specific and use names and specific examples when possible."
         response = openai.Completion.create(
             engine="text-davinci-002",
             prompt=prompt,
@@ -121,8 +121,8 @@ def process_search_results(query, results_text):
         response_text = response.choices[0].text.strip()
         tokens_used = response['usage']['total_tokens']
         log_openai_interaction(timestamp, content_sent, response_text, tokens_used)
+        print(f"Vector Search response: {response_text} ")
         return response_text
-
 
 async def fetch_and_log_missed_messages(client,conn):
     # Step 1: Fetch the timestamp of the most recent message
@@ -158,3 +158,35 @@ async def fetch_and_log_missed_messages(client,conn):
                     print(f"Permission error in channel: {channel.name}")
                 except discord.HTTPException as e:
                     print(f"Failed to fetch messages from {channel.name}. Error: {e}")
+async def primer_check(conn, username, query):
+    openai.api_key = get_api_key()
+    try:
+        # Create a cursor
+        cur = conn.cursor()
+        # Check if the user exists in the 'discord_name' table
+        cur.execute("SELECT primer FROM discord_name WHERE username = ?", (username,))
+        result = cur.fetchone()
+        # If the user is found, retrieve the primer
+        if result:
+            primer = result[0]
+
+            # Use OpenAI to determine if the primer is useful in answering the query
+            response = openai.Completion.create(
+                engine="text-davinci-002",
+                prompt=f"User Primer: {primer}\nQuestion: {query}\nIs the primer useful in answering the question?",
+                max_tokens=1
+            )
+
+            # Check OpenAI's response to determine if the primer is useful
+            if response.choices[0].text.strip() == "Yes":
+                return primer
+            else:
+                return "The primer is not useful for answering the query."
+        else:
+            return f"No user with the username '{username}' found in the database."
+    except openai.error.OpenAIError as openai_error:
+        # Handle OpenAI API errors
+        return f"OpenAI API Error: {str(openai_error)}"
+    except Exception as e:
+        # Handle other exceptions
+        return f"An error occurred: {str(e)}"

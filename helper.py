@@ -1,16 +1,17 @@
+import os
 import random
+from datetime import datetime
+
 import discord
 from discord.ext import commands
-import chatdb_utils
+
 import chatdb_tables
-from chatdb_utils import create_connection, recent_chats
-from datetime import datetime
+import chatdb_utils
 from bot_commands import setup_commands
 from bot_utils import analyze_image, fetch_and_log_missed_messages
+from chatdb_utils import create_connection, recent_chats
 from lc_testing import new_process_chat
 
-
-import os
 PROCESS_MESSAGES = True
 intents = discord.Intents.all()
 intents.members = True
@@ -78,7 +79,7 @@ class MyClient(commands.Bot):
                             file_path = f'./images/{attachment.filename}'
                             await attachment.save(file_path)
                             # Analyze the image
-                            description = analyze_image(file_path)
+                            #description = analyze_image(file_path)
                             # Send the description
                             # await message.channel.send(description)
                     else:
